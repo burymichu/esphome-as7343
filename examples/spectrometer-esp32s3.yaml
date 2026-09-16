@@ -22,7 +22,7 @@ wifi:
 external_components:
   - source:
       type: git
-      url: https://github.com/<your-username>/esphome-as7343
+      url: https://github.com/burymichu/esphome-as7343
       ref: main
     components: [ as7343 ]
 
