@@ -1,0 +1,254 @@
+# Standalone zero-dependency ESPHome configuration for AS7343
+# Works directly on any ESP32 / ESP32-S3 without compiling external components!
+
+esphome:
+  name: as7343-spectrometer
+  friendly_name: "AS7343 Spectrometer"
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  framework:
+    type: esp-idf
+
+logger:
+  level: INFO
+
+api:
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: "YOUR_WIFI_SSID"
+  password: "YOUR_WIFI_PASSWORD"
+
+globals:
+  - id: global_gain_mult
+    type: float
+    restore_value: no
+    initial_value: '1.0'
+
+i2c:
+  sda: GPIO8
+  scl: GPIO9
+  scan: true
+  frequency: 50kHz
+  timeout: 10ms
+  id: bus_a
+
+i2c_device:
+  - id: as7343_dev
+    i2c_id: bus_a
+    address: 0x39
+
+sensor:
+  - platform: template
+    name: "AS7343 F1 (405nm Violet)"
+    id: as7343_f1
+    unit_of_measurement: "counts"
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: template
+    name: "AS7343 F2 (425nm Indigo)"
+    id: as7343_f2
+    unit_of_measurement: "counts"
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: template
+    name: "AS7343 FZ (450nm Blue)"
+    id: as7343_fz
+    unit_of_measurement: "counts"
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: template
+    name: "AS7343 F3 (475nm Cyan-Blue)"
+    id: as7343_f3
+    unit_of_measurement: "counts"
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: template
+    name: "AS7343 F4 (515nm Cyan)"
+    id: as7343_f4
+    unit_of_measurement: "counts"
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: template
+    name: "AS7343 F5 (550nm Green)"
+    id: as7343_f5
+    unit_of_measurement: "counts"
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: template
+    name: "AS7343 FY (555nm Wide Green)"
+    id: as7343_fy
+    unit_of_measurement: "counts"
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: template
+    name: "AS7343 FXL (600nm Orange)"
+    id: as7343_fxl
+    unit_of_measurement: "counts"
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: template
+    name: "AS7343 F6 (640nm Red)"
+    id: as7343_f6
+    unit_of_measurement: "counts"
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: template
+    name: "AS7343 F7 (690nm Deep Red)"
+    id: as7343_f7
+    unit_of_measurement: "counts"
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: template
+    name: "AS7343 F8 (745nm Far-Red)"
+    id: as7343_f8
+    unit_of_measurement: "counts"
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: template
+    name: "AS7343 NIR (855nm Near-Infrared)"
+    id: as7343_nir
+    unit_of_measurement: "counts"
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: template
+    name: "AS7343 VIS (Visible Clear)"
+    id: as7343_vis
+    unit_of_measurement: "counts"
+    state_class: measurement
+    accuracy_decimals: 0
+
+  - platform: template
+    name: "R:FR Ratio (690nm / 745nm)"
+    id: as7343_r_fr
+    state_class: measurement
+    accuracy_decimals: 2
+    icon: "mdi:flower"
+
+  - platform: template
+    name: "B:R Ratio (450nm / 690nm)"
+    id: as7343_b_r
+    state_class: measurement
+    accuracy_decimals: 2
+    icon: "mdi:theme-light-dark"
+
+  - platform: template
+    name: "PAR Proxy (400-700nm Sum)"
+    id: as7343_par_proxy
+    unit_of_measurement: "counts"
+    state_class: measurement
+    accuracy_decimals: 0
+    icon: "mdi:white-balance-sunny"
+
+  - platform: template
+    name: "Estimated PPFD"
+    id: as7343_ppfd
+    unit_of_measurement: "µmol/m²/s"
+    state_class: measurement
+    accuracy_decimals: 1
+    icon: "mdi:lightning-bolt"
+
+script:
+  - id: run_spectrometer_cycle
+    mode: restart
+    then:
+      - lambda: |-
+          static bool initialized = false;
+          if (!initialized) {
+            // Read Chip ID from Bank 1
+            id(as7343_dev).reg(0xBF) = 0x10;
+            uint8_t chip_id = id(as7343_dev).reg(0x5A).get();
+            ESP_LOGI("AS7343", "Sensor Part ID: 0x%02X (expected 0x81)", chip_id);
+
+            // Bank 0
+            id(as7343_dev).reg(0xBF) = 0x00;
+            id(as7343_dev).reg(0x80) = 0x01; // PON = 1
+            id(as7343_dev).reg(0xD6) = 0x60; // Auto-SMUX 18-ch mode
+            id(as7343_dev).reg(0xC6) = 0x01; // Gain 1x
+            id(as7343_dev).reg(0x81) = 29;   // ATIME
+            id(as7343_dev).reg(0xD4) = 0x57; // ASTEP_L
+            id(as7343_dev).reg(0xD5) = 0x02; // ASTEP_H
+            initialized = true;
+          }
+
+          id(as7343_dev).reg(0xBF) = 0x00;
+          uint8_t st = id(as7343_dev).reg(0x93).get();
+          id(as7343_dev).reg(0x93) = st;
+          volatile uint8_t clr_astatus = id(as7343_dev).reg(0x94).get();
+          (void)clr_astatus;
+
+          // Trigger measurement (PON=1, SP_EN=1)
+          id(as7343_dev).reg(0x80) = 0x03;
+
+      - delay: 350ms
+
+      - lambda: |-
+          id(as7343_dev).reg(0xBF) = 0x00;
+          uint8_t status2 = id(as7343_dev).reg(0x90).get();
+          if (!(status2 & 0x40)) {
+            return; // Data not ready yet
+          }
+
+          // Latch shadow registers
+          volatile uint8_t astatus = id(as7343_dev).reg(0x94).get();
+          (void)astatus;
+
+          // Burst read 36 bytes (18 channels) from 0x95
+          uint8_t raw[36];
+          bool ok = id(as7343_dev).read_bytes(0x95, raw, 36);
+          id(as7343_dev).reg(0x80) = 0x01; // SP_EN = 0
+
+          if (!ok) return;
+
+          uint16_t ch[18];
+          for (int i = 0; i < 18; i++) {
+            ch[i] = (uint16_t)raw[i * 2] | ((uint16_t)raw[i * 2 + 1] << 8);
+            if (ch[i] > 18000) return; // Glitch filter
+          }
+
+          float fz  = ch[0];
+          float fy  = ch[1];
+          float fxl = ch[2];
+          float nir = ch[3];
+          float vis = ch[4];
+          float f2  = ch[6];
+          float f3  = ch[7];
+          float f4  = ch[8];
+          float f6  = ch[9];
+          float f1  = ch[12];
+          float f7  = ch[13];
+          float f8  = ch[14];
+          float f5  = ch[15];
+
+          id(as7343_f1).publish_state(f1);
+          id(as7343_f2).publish_state(f2);
+          id(as7343_fz).publish_state(fz);
+          id(as7343_f3).publish_state(f3);
+          id(as7343_f4).publish_state(f4);
+          id(as7343_f5).publish_state(f5);
+          id(as7343_fy).publish_state(fy);
+          id(as7343_fxl).publish_state(fxl);
+          id(as7343_f6).publish_state(f6);
+          id(as7343_f7).publish_state(f7);
+          id(as7343_f8).publish_state(f8);
+          id(as7343_nir).publish_state(nir);
+          id(as7343_vis).publish_state(vis);
+
+          if (f8 > 5.0f) id(as7343_r_fr).publish_state(f7 / f8);
+          else id(as7343_r_fr).publish_state(0.0f);
+
+          if (f7 > 5.0f) id(as7343_b_r).publish_state(fz / f7);
+          else id(as7343_b_r).publish_state(0.0f);
+
+          float par = f1 + f2 + fz + f3 + f4 + f5 + fy + fxl + f6 + f7;
+          id(as7343_par_proxy).publish_state(par);
+          id(as7343_ppfd).publish_state(par * 0.150f);
+
+interval:
+  - interval: 3s
+    then:
+      - script.execute: run_spectrometer_cycle

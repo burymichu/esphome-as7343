@@ -1,0 +1,79 @@
+esphome:
+  name: as7343-spectrometer
+  friendly_name: AS7343 Spectrometer
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+logger:
+  level: INFO
+
+api:
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: "YOUR_WIFI_SSID"
+  password: "YOUR_WIFI_PASSWORD"
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/<your-username>/esphome-as7343
+      ref: main
+    components: [ as7343 ]
+
+i2c:
+  sda: GPIO8
+  scl: GPIO9
+  scan: true
+  frequency: 50kHz
+
+as7343:
+  id: spectrometer
+  gain: 1X
+  atime: 29
+  astep: 599
+  update_interval: 5s
+
+sensor:
+  - platform: as7343
+    as7343_id: spectrometer
+    ppfd_factor: 0.150
+    f1:
+      name: "AS7343 F1 (405nm Violet)"
+    f2:
+      name: "AS7343 F2 (425nm Indigo)"
+    fz:
+      name: "AS7343 FZ (450nm Blue)"
+    f3:
+      name: "AS7343 F3 (475nm Cyan-Blue)"
+    f4:
+      name: "AS7343 F4 (515nm Cyan)"
+    f5:
+      name: "AS7343 F5 (550nm Green)"
+    fy:
+      name: "AS7343 FY (555nm Wide Green)"
+    fxl:
+      name: "AS7343 FXL (600nm Orange)"
+    f6:
+      name: "AS7343 F6 (640nm Red)"
+    f7:
+      name: "AS7343 F7 (690nm Deep Red)"
+    f8:
+      name: "AS7343 F8 (745nm Far-Red)"
+    nir:
+      name: "AS7343 NIR (855nm Near-Infrared)"
+    clear:
+      name: "AS7343 VIS (Visible Clear)"
+    r_fr:
+      name: "R:FR Ratio"
+    b_r:
+      name: "B:R Ratio"
+    par_proxy:
+      name: "PAR Proxy"
+    ppfd:
+      name: "Estimated PPFD"
