@@ -6,6 +6,8 @@ A custom ESPHome external component for the **ams-OSRAM AS7343 14-channel multi-
 
 The AS7343 is an I2C spectral sensor covering visible and near-infrared light bands. Useful for grow light monitoring, plant canopy analysis, aquarium lighting, and DIY optical experiments.
 
+> **Note on Upstream ESPHome Support**: Official unified `as734x` core support is currently being developed by @latonita (see PR [#17038](https://github.com/esphome/esphome/pull/17038) and previous [#6285](https://github.com/esphome/esphome/pull/6285)). This repository provides a working standalone YAML configuration and an external component for users wanting to run the AS7343 right now.
+
 ---
 
 ## Features
